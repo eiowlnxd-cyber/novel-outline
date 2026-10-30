@@ -60,3 +60,18 @@
 .no-bar textarea{flex:1;border:1px solid #000;background:#fff;padding:8px 10px;font-size:14px;line-height:1.6;resize:none;outline:none;max-height:120px}
 .no-send{background:#000;color:#fff;border:0;padding:10px 18px;font-size:14px;letter-spacing:.15em;cursor:pointer}
 .no-send:disabled{opacity:.4}
+
+/* volumes & acts */
+.no-tool{display:flex;gap:16px;margin-bottom:18px}
+.no-adds{display:flex;gap:10px}
+.no-adds .no-add{flex:1;padding:12px 4px;letter-spacing:.1em}
+.no-n.vol{margin-top:34px}
+.no-n.vol:first-child{margin-top:0}
+.no-n.vol .no-dot{width:20px;height:20px;left:-34px;top:14px;border-radius:0;background:#000}
+.no-n.act .no-dot{width:10px;height:10px;left:-29px;top:10px;border:0;border-radius:0;background:#000}
+.no-n.vol .no-card{border-width:2px;padding:16px}
+.no-n.vol .no-name{font-size:21px;letter-spacing:.12em}
+.no-n.act .no-card{border:0;border-left:3px solid #000;background:transparent;padding:2px 0 2px 12px}
+.no-n.act .no-name{font-size:16px}
+.no-n.vol .no-card:hover,.no-n.act .no-card:hover{box-shadow:none;transform:none}
+.no-cnt{font-size:12px;color:#888;margin-top:4px}

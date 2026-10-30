@@ -19,6 +19,22 @@
     return e;
   };
   const btn = (label, fn) => h('button', { class: 'no-btn', type: 'button', onclick: fn }, label);
+  const RANK = { vol: 0, act: 1, ch: 2 };
+  const rk = n => RANK[n.type || 'ch'];
+  const blockEnd = i => { let j = i + 1; while (j < S.nodes.length && rk(S.nodes[j]) > rk(S.nodes[i])) j++; return j; };
+  function moveNode(i, d) {
+    const N = S.nodes, r = rk(N[i]);
+    if (r === 2) { const j = i + d; if (j < 0 || j >= N.length) return; [N[i], N[j]] = [N[j], N[i]]; }
+    else {
+      const blk = N.splice(i, blockEnd(i) - i);
+      if (d < 0) {
+        let k = i - 1; while (k >= 0 && rk(N[k]) > r) k--;
+        if (k < 0 || rk(N[k]) < r) N.splice(i, 0, ...blk); else N.splice(k, 0, ...blk);
+      } else if (i >= N.length || rk(N[i]) < r) N.splice(i, 0, ...blk);
+      else N.splice(blockEnd(i), 0, ...blk);
+    }
+    save(); render();
+  }
   const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; save(); render(); };
 
   function load() {
@@ -30,11 +46,39 @@
     c.chatMetadata[KEY] = S;
     c.saveMetadata && c.saveMetadata();
   }
+  function ctxOf(i) {
+    let v = null, a = null;
+    for (let k = i; k >= 0; k--) {
+      const n = S.nodes[k];
+      if (!a && n.type === 'act') a = n;
+      if (n.type === 'vol') { v = n; break; }
+    }
+    return { v, a };
+  }
   function inject() {
     try {
-      const n = S.nodes.find(x => x.id === S.active);
-      ctx().setExtensionPrompt(KEY, n ? `[当前剧情节点「${n.title}」：${n.summary}\n请自然地朝这个方向推进剧情，不要提及此提示。]` : '', 1, 3);
+      const i = S.nodes.findIndex(x => x.id === S.active), n = S.nodes[i];
+      let t = '';
+      if (n) {
+        const { v, a } = ctxOf(i);
+        const bg = [v && `卷「${v.title}」${v.summary ? '：' + v.summary : ''}`, a && `幕「${a.title}」${a.summary ? '：' + a.summary : ''}`].filter(Boolean).join('\n');
+        t = `${bg ? '[剧情背景\n' + bg + ']\n' : ''}[当前剧情节点「${n.title}」：${n.summary}\n请自然地朝这个方向推进剧情，不要提及此提示。]`;
+      }
+      ctx().setExtensionPrompt(KEY, t, 1, 3);
     } catch (e) { console.warn('[novel-outline]', e); }
+  }
+  function outlineText() {
+    const N = S.nodes, a = N.findIndex(x => x.id === S.active);
+    let cs = -1, ce = -1;
+    if (a >= 0) { cs = a; while (cs > 0 && rk(N[cs]) > 1) cs--; ce = a + 1; while (ce < N.length && rk(N[ce]) > 1) ce++; }
+    let c = 0;
+    return N.map((n, i) => {
+      const t = n.type || 'ch', sm = n.summary ? '：' + n.summary : '';
+      if (t === 'vol') return `# 卷「${n.title}」${sm}`;
+      if (t === 'act') return `## 幕「${n.title}」${sm}`;
+      c++;
+      return `${c}. ${n.title}${a < 0 || (i >= cs && i < ce) ? sm : ''}`;
+    }).join('\n') || '（暂无）';
   }
   async function gen(q) {
     const c = ctx();
@@ -43,35 +87,55 @@
   }
 
   /* ---------- timeline ---------- */
+  function foldAll(mode) {
+    S.nodes.forEach(n => {
+      if (n.type === 'vol') n.fold = mode === 'vol';
+      if (n.type === 'act') n.fold = mode === 'act';
+    });
+    save(); render();
+  }
   function rTimeline(b) {
-    if (!S.nodes.length) b.append(h('div', { class: 'no-empty' }, '还没有剧情节点', h('br'), '从第一章开始，把故事一格一格排下去'));
+    if (!S.nodes.length) b.append(h('div', { class: 'no-empty' }, '还没有剧情节点', h('br'), '先建一卷、一幕，再往里排章节'));
+    if (S.nodes.some(n => n.type)) b.append(h('div', { class: 'no-tool' }, btn('只看卷', () => foldAll('vol')), btn('只看幕', () => foldAll('act')), btn('全部展开', () => foldAll(''))));
     const tl = h('div', { class: 'no-tl' });
+    let hv = false, ha = false, cn = 0, vn = 0, an = 0;
     S.nodes.forEach((n, i) => {
+      const t = n.type || 'ch';
+      let vis, label;
+      if (t === 'vol') { hv = !!n.fold; ha = false; vis = true; vn++; an = 0; label = `第 ${vn} 卷`; }
+      else if (t === 'act') { ha = !!n.fold; vis = !hv; an++; label = `第 ${an} 幕`; }
+      else { cn++; vis = !hv && !ha; label = `第 ${cn} 章`; }
+      if (!vis) return;
       const card = h('div', { class: 'no-card' });
       if (editing.has(n.id)) {
-        const t = h('input', { class: 'no-in', placeholder: '章节标题', value: n.title });
-        const s = h('textarea', { class: 'no-in', rows: 4, placeholder: '这一段发生了什么……' });
-        s.value = n.summary;
-        card.append(h('div', { class: 'no-lab' }, `第 ${i + 1} 章`), t, s,
+        const ti = h('input', { class: 'no-in', placeholder: t === 'ch' ? '章节标题' : '标题', value: n.title });
+        const sm = h('textarea', { class: 'no-in', rows: 4, placeholder: t === 'ch' ? '这一段发生了什么……' : '一句话概述这一部分' });
+        sm.value = n.summary;
+        card.append(h('div', { class: 'no-lab' }, label), ti, sm,
           h('div', { class: 'no-act' },
-            btn('保存', () => { n.title = t.value.trim() || '未命名'; n.summary = s.value; editing.delete(n.id); save(); inject(); render(); }),
+            btn('保存', () => { n.title = ti.value.trim() || '未命名'; n.summary = sm.value; editing.delete(n.id); save(); inject(); render(); }),
             btn('取消', () => { editing.delete(n.id); render(); })));
       } else {
-        card.append(
-          h('div', { class: 'no-lab' }, `第 ${i + 1} 章`),
-          h('div', { class: 'no-name' }, n.title),
+        const acts = [];
+        if (t === 'ch') acts.push(h('button', { class: 'no-st', type: 'button', onclick: () => { n.st = ((n.st || 0) + 1) % 3; save(); render(); } }, STATES[n.st || 0]));
+        else acts.push(btn(n.fold ? '展开' : '折叠', () => { n.fold = !n.fold; save(); render(); }));
+        acts.push(btn('编辑', () => { editing.add(n.id); render(); }), btn('上移', () => moveNode(i, -1)), btn('下移', () => moveNode(i, 1)));
+        if (t === 'ch') acts.push(btn(S.active === n.id ? '取消当前' : '设为当前', () => { S.active = S.active === n.id ? null : n.id; save(); inject(); render(); }));
+        acts.push(btn('删除', () => {
+          if (!confirm(t === 'ch' ? '删除这个节点？' : '删除这一卷/幕？其下章节会保留')) return;
+          if (S.active === n.id) S.active = null;
+          S.nodes.splice(i, 1); save(); inject(); render();
+        }));
+        const cnt = t !== 'ch' && n.fold ? S.nodes.slice(i + 1, blockEnd(i)).filter(x => !x.type || x.type === 'ch').length : 0;
+        card.append(h('div', { class: 'no-lab' }, label), h('div', { class: 'no-name' }, n.title),
           n.summary ? h('div', { class: 'no-sum' }, n.summary) : null,
-          h('div', { class: 'no-act' },
-            h('button', { class: 'no-st', type: 'button', onclick: () => { n.st = ((n.st || 0) + 1) % 3; save(); render(); } }, STATES[n.st || 0]),
-            btn('编辑', () => { editing.add(n.id); render(); }),
-            btn('上移', () => move(S.nodes, i, -1)),
-            btn('下移', () => move(S.nodes, i, 1)),
-            btn(S.active === n.id ? '取消当前' : '设为当前', () => { S.active = S.active === n.id ? null : n.id; save(); inject(); render(); }),
-            btn('删除', () => { if (!confirm('删除这个节点？')) return; if (S.active === n.id) S.active = null; S.nodes.splice(i, 1); save(); inject(); render(); })));
+          cnt ? h('div', { class: 'no-cnt' }, `已折叠 ${cnt} 章`) : null,
+          h('div', { class: 'no-act' }, ...acts));
       }
-      tl.append(h('div', { class: `no-n s${n.st || 0}${S.active === n.id ? ' active' : ''}` }, h('div', { class: 'no-dot' }), card));
+      tl.append(h('div', { class: `no-n ${t}${t === 'ch' ? ' s' + (n.st || 0) : ''}${S.active === n.id ? ' active' : ''}`, id: 'no-' + n.id }, h('div', { class: 'no-dot' }), card));
     });
-    b.append(tl, h('button', { class: 'no-add', type: 'button', onclick: () => { const n = { id: uid(), title: '新章节', summary: '', st: 0 }; S.nodes.push(n); editing.add(n.id); save(); render(); } }, '＋ 添加节点'));
+    const add = (type, title) => h('button', { class: 'no-add', type: 'button', onclick: () => { const n = { id: uid(), type, title, summary: '', st: 0 }; S.nodes.push(n); editing.add(n.id); save(); render(); } }, `＋ ${type === 'ch' ? '章节' : type === 'act' ? '幕' : '卷'}`);
+    b.append(tl, h('div', { class: 'no-adds' }, add('ch', '新章节'), add('act', '新的一幕'), add('vol', '新的一卷')));
   }
 
   /* ---------- ideas ---------- */
@@ -111,10 +175,10 @@
       S.chat.push({ r: 'u', t: text });
       const p = { r: 'a', t: '……', pending: true };
       S.chat.push(p); render();
-      const outline = S.nodes.map((n, i) => `${i + 1}. ${n.title}：${n.summary}`).join('\n') || '（暂无）';
+      const outline = outlineText();
       const ideas = S.ideas.map(d => `- ${d.text}`).join('\n') || '（暂无）';
       const hist = S.chat.slice(-12, -2).map(m => `${m.r === 'u' ? '用户' : '助手'}：${m.t}`).join('\n');
-      const q = `【任务】暂停角色扮演，你现在是小说剧情策划助手，和用户讨论故事大纲。用中文回答，简洁、具体，给出可执行的建议。\n【当前大纲】\n${outline}\n【灵感片段】\n${ideas}\n【讨论记录】\n${hist}\n用户：${text}\n请直接回复：`;
+      const q = `【任务】暂停角色扮演，你现在是小说剧情策划助手，和用户讨论故事大纲。用中文回答，简洁、具体，给出可执行的建议。\n【当前大纲（当前幕展开，其余章节仅标题）】\n${outline}\n【灵感片段】\n${ideas}\n【讨论记录】\n${hist}\n用户：${text}\n请直接回复：`;
       try { p.t = String(await gen(q)).trim() || '（没有返回内容）'; }
       catch (e) { p.t = '（生成失败，请检查 API 连接）'; console.error(e); }
       delete p.pending; busy = false; save(); render();
@@ -140,8 +204,14 @@
       h('div', { class: 'no-tabs' }, ...[['timeline', '时间线'], ['ideas', '灵感'], ['chat', '讨论']].map(([k, v]) =>
         h('div', { class: 'no-tab', 'data-t': k, onclick: () => { tab = k; render(); } }, v))),
       h('div', { id: 'no-body', class: 'no-body' }));
-    const fab = h('div', { id: 'no-fab', title: '小说大纲', onclick: () => { load(); render(); panel.classList.add('open'); } }, '纲');
+    const open = () => { load(); render(); panel.classList.add('open'); };
+    const fab = h('div', { id: 'no-fab', title: '小说大纲', onclick: open }, '纲');
     document.body.append(fab, panel);
+    const menu = document.getElementById('extensionsMenu');
+    if (menu && !document.getElementById('no-menu-item')) {
+      menu.append(h('div', { id: 'no-menu-item', class: 'list-group-item flex-container flexGap5', onclick: open },
+        h('div', { class: 'fa-solid fa-book-open extensionsMenuExtensionButton' }), h('span', {}, '小说大纲')));
+    }
     const c = ctx();
     c.eventSource.on(c.eventTypes.CHAT_CHANGED, () => { load(); inject(); editing.clear(); render(); });
     load(); inject();
