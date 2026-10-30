@@ -40,16 +40,16 @@ button{font-weight:400}
 .no-sb.on{color:#111;border-bottom-color:#111;background:transparent}
 
 /* Timeline: one continuous line, with unboxed text placed alongside it. */
-.no-tl{position:relative;padding:14px 0 8px}
+.no-tl{position:relative;padding:14px 0 8px;display:grid;grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr);column-gap:14px}
 .no-tl::before{content:"";position:absolute;top:0;bottom:0;width:1px;background:#111}
 .m-zig::before{left:50%;transform:translateX(-.5px)}
 .m-left::before{left:8px}
 .m-right::before{right:8px}
-.no-n{position:relative;margin:0 0 34px;min-height:20px}
+.no-n{position:relative;margin:0 0 34px;min-height:20px;grid-column:1 / 4;display:grid;grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr);column-gap:14px;align-items:start}
 .no-c{position:relative;font-size:14px;min-width:0}
-.m-zig .no-n .no-c{width:calc(50% - 26px)}
-.m-zig .no-n.L .no-c{margin-right:auto;text-align:right}
-.m-zig .no-n.R .no-c{margin-left:auto;text-align:left}
+.m-zig .no-n .no-c{width:auto;max-width:100%;grid-row:1}
+.m-zig .no-n.L .no-c{grid-column:1;text-align:right}
+.m-zig .no-n.R .no-c{grid-column:3;text-align:left}
 .m-left .no-n .no-c{margin-left:30px}
 .m-right .no-n .no-c{margin-right:30px;text-align:right}
 .no-dot{display:none !important}
@@ -57,8 +57,8 @@ button{font-weight:400}
 .no-name{font-family:"Noto Serif SC","Songti SC",serif;font-size:18px;font-weight:500;line-height:1.55;color:#111;overflow-wrap:anywhere}
 .no-n.active .no-name{font-weight:700}
 .no-sum{font-size:13px;line-height:1.9;color:#555;white-space:pre-wrap;margin-top:5px;overflow-wrap:anywhere}
-.no-cnt{font-size:11px;color:#999;margin-top:5px;letter-spacing:.04em}
-.no-n.act{margin-top:36px}
+.no-cnt{font-size:11px;color:#999;margin-top:8px;letter-spacing:.04em}.no-chapter-items{margin-top:10px;color:#666;font-size:12px;line-height:2}.no-chapter-item{padding-left:8px;border-left:1px solid #d8d8d5;margin:5px 0}
+.no-n.act{margin-top:12px}
 .no-n.act:first-child{margin-top:0}
 .no-n.act .no-name{font-size:19px;letter-spacing:.08em}
 .no-act{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
@@ -85,11 +85,11 @@ textarea.no-in{margin-top:9px}
 .no-post:hover{opacity:.62}
 .no-post:active{transform:translateY(1px)}
 .no-grid{display:flex;flex-direction:column;gap:12px;align-items:stretch}
-.no-idea{position:relative;width:100%;background:#fff;border:1px solid #e9e9e9;border-radius:2px;padding:14px 16px 12px;cursor:pointer;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:border-color .26s ease,background-color .26s ease,opacity .26s ease,transform .26s cubic-bezier(.2,.75,.25,1);font-size:13px;line-height:1.9;overflow:hidden;word-break:break-word}
-.no-idea:hover{border-color:#c8c8c8}
-.no-idea.drag{z-index:20;border-color:#111;opacity:.82;box-shadow:none;transition:none;cursor:grabbing}
-.no-idea.over{border-color:#111;background:#fcfcfc}
-.no-idea.ed{border-color:#bdbdbd;user-select:text;-webkit-user-select:text;cursor:default}
+.no-idea{position:relative;width:100%;background:#f7f7f5;border:0;border-radius:10px;padding:16px 18px 14px;cursor:pointer;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:border-color .26s ease,background-color .26s ease,opacity .26s ease,transform .26s cubic-bezier(.2,.75,.25,1);font-size:13px;line-height:1.9;overflow:hidden;word-break:break-word}
+.no-idea:hover{background:#f1f1ee}
+.no-idea.drag{z-index:20;opacity:.82;box-shadow:none;transition:none;cursor:grabbing}
+.no-idea.over{background:#eaeae6}
+.no-idea.ed{background:#f7f7f5;user-select:text;-webkit-user-select:text;cursor:default}
 .no-idea-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px;color:#999}
 .no-idea-index{font-size:10px;letter-spacing:.13em;font-variant-numeric:tabular-nums}
 .no-idea-time{flex:1;font-size:10px;letter-spacing:.05em}
@@ -159,8 +159,16 @@ textarea.no-in{margin-top:9px}
   function load() {
     const m = ctx().chatMetadata;
     S = Object.assign({ nodes: [], ideas: [], themes: [], chat: [], active: null }, (m && m[KEY]) || {});
-    S.nodes = S.nodes.filter(n => n.type !== 'vol');
-    S.ideas.forEach(d => { if (!d.t) d.t = Date.now(); if (!d.imgs) d.imgs = []; if (d.text == null) d.text = ''; });
+    // Metadata may be empty or partially written after a chat switch; normalize it
+    // before any renderer touches it so a malformed field cannot abort panel startup.
+    if (!Array.isArray(S.nodes)) S.nodes = [];
+    if (!Array.isArray(S.ideas)) S.ideas = [];
+    if (!Array.isArray(S.chat)) S.chat = [];
+    if (!Array.isArray(S.themes)) S.themes = [];
+    S.nodes = S.nodes.filter(n => n && typeof n === 'object' && n.type !== 'vol');
+    S.ideas.forEach(d => { if (!d || typeof d !== 'object') return; if (!d.t) d.t = Date.now(); if (!Array.isArray(d.imgs)) d.imgs = []; if (d.text == null) d.text = ''; });
+    S.ideas = S.ideas.filter(d => d && typeof d === 'object');
+    S.chat = S.chat.filter(m => m && typeof m === 'object');
   }
   function save() {
     const c = ctx();
@@ -237,53 +245,68 @@ textarea.no-in{margin-top:9px}
   /* ---------- timeline ---------- */
   function foldAll(f) { S.nodes.forEach(n => { if (n.type === 'act') n.fold = f; }); save(); render(); }
   function rTimeline(b) {
-    const c = cfg();
-    b.append(h('div', { class: 'no-tool' }, btn(cfgOpen ? '收起排版' : '排版设置', () => { cfgOpen = !cfgOpen; render(); }),
-      S.nodes.some(n => n.type === 'act') ? [btn('只看幕', () => foldAll(true)), btn('全部展开', () => foldAll(false))] : null));
-    if (cfgOpen) b.append(h('div', { class: 'no-cfg' },
-      seg('文字排布', [['zig', '左右交错'], ['left', '靠左'], ['right', '靠右']], c.layout, v => { c.layout = v; saveCfg(); render(); })));
-    if (!S.nodes.length) b.append(h('div', { class: 'no-empty' }, '还没有剧情节点', h('br'), '先建一幕，再往里排章节'));
-    const tl = h('div', { class: `no-tl m-${c.layout}${c.dots ? '' : ' nodots'}` });
-    let ha = false, cn = 0, an = 0, side = 0;
+    b.append(h('div', { class: 'no-tool' },
+      btn('＋ 新建一幕', () => addNode('act', '新的一幕')),
+      btn('＋ 新建章节', () => addNode('ch', '新章节'))));
+    if (!S.nodes.length) b.append(h('div', { class: 'no-empty' }, '时间线还没有内容', h('br'), '先记录一幕幕正在构思或待写的剧情；完成后的幕可以收进章节。'));
+    const tl = h('div', { class: 'no-tl m-zig' });
+    let actIndex = 0, chapterIndex = 0;
+    const assigned = new Set(S.nodes.filter(n => n.type === 'ch').flatMap(n => Array.isArray(n.actIds) ? n.actIds : []));
     S.nodes.forEach((n, i) => {
       const t = n.type || 'ch';
-      let vis, label;
-      if (t === 'act') { ha = !!n.fold; vis = true; an++; label = `第 ${an} 幕`; }
-      else { cn++; vis = !ha; label = `第 ${cn} 章`; }
-      if (!vis) return;
+      if (t === 'act' && assigned.has(n.id)) return;
       const ed = editing.has(n.id), body = h('div', { class: 'no-c' });
+      let label;
+      if (t === 'act') label = `幕 ${String(++actIndex).padStart(2, '0')} · ${STATES[n.st || 0]}`;
+      else label = `章节 ${String(++chapterIndex).padStart(2, '0')} · 已归档`;
       if (ed) {
         const ti = h('input', { class: 'no-in', placeholder: '标题', value: n.title });
-        const sm = h('textarea', { class: 'no-in', rows: 4, placeholder: t === 'ch' ? '这一段发生了什么……' : '一句话概述这一幕' });
-        sm.value = n.summary;
+        const sm = h('textarea', { class: 'no-in', rows: 3, placeholder: t === 'ch' ? '章节梗概（可选）' : '这一幕的想法、待写剧情或剧情进展' }); sm.value = n.summary || '';
         body.append(h('div', { class: 'no-lab' }, label), ti, sm, h('div', { class: 'no-act' },
-          btn('保存', () => { n.title = ti.value.trim() || '未命名'; n.summary = sm.value; editing.delete(n.id); save(); inject(); render(); }),
+          btn('保存', () => { n.title = ti.value.trim() || (t === 'act' ? '未命名的一幕' : '未命名章节'); n.summary = sm.value; editing.delete(n.id); save(); render(); }),
           btn('取消', () => { editing.delete(n.id); render(); })));
       } else {
-        const cnt = t === 'act' && n.fold ? S.nodes.slice(i + 1, blockEnd(i)).length : 0;
-        body.append(h('div', { class: 'no-lab' }, label + (S.active === n.id ? ' · 当前' : '')), h('div', { class: 'no-name' }, n.title),
-          n.summary ? h('div', { class: 'no-sum' }, n.summary) : null,
-          cnt ? h('div', { class: 'no-cnt' }, `已折叠 ${cnt} 章`) : null);
+        body.append(h('div', { class: 'no-lab' }, label), h('div', { class: 'no-name' }, n.title || '未命名'),
+          n.summary ? h('div', { class: 'no-sum' }, n.summary) : null);
+        if (t === 'ch') {
+          const members = (n.actIds || []).map(id => S.nodes.find(x => x.id === id)).filter(Boolean);
+          if (members.length) body.append(h('div', { class: 'no-chapter-items' }, ...members.map((a, k) => h('div', { class: 'no-chapter-item' }, `${k + 1}. ${a.title}`))));
+          else body.append(h('div', { class: 'no-cnt' }, '尚未收录幕'));
+        }
         if (openId === n.id) {
-          const acts = [];
-          if (t === 'ch') acts.push(h('button', { class: 'no-st', type: 'button', onclick: () => { n.st = ((n.st || 0) + 1) % 3; save(); render(); } }, STATES[n.st || 0]));
-          else acts.push(btn(n.fold ? '展开' : '折叠', () => { n.fold = !n.fold; save(); render(); }));
-          acts.push(btn('编辑', () => { editing.add(n.id); render(); }), btn('上移', () => moveNode(i, -1)), btn('下移', () => moveNode(i, 1)));
-          if (t === 'ch') acts.push(btn(S.active === n.id ? '取消当前' : '设为当前', () => { S.active = S.active === n.id ? null : n.id; save(); inject(); render(); }));
-          acts.push(btn('删除', () => {
-            if (!confirm(t === 'ch' ? '删除这个章节？' : '删除这一幕？其下章节会保留')) return;
-            if (S.active === n.id) S.active = null;
-            S.nodes.splice(i, 1); save(); inject(); render();
+          const actions = [btn('编辑', () => { editing.add(n.id); render(); })];
+          if (t === 'act') {
+            actions.push(h('button', { class: 'no-st', type: 'button', onclick: () => { n.st = ((n.st || 0) + 1) % STATES.length; save(); render(); } }, '标记：' + STATES[n.st || 0]));
+            actions.push(btn('收进章节', () => {
+              const chapters = S.nodes.filter(x => x.type === 'ch');
+              if (!chapters.length) { alert('请先新建一个章节，再将这一幕收录进去。'); return; }
+              const choices = chapters.map((x, k) => `${k + 1}. ${x.title}`).join('\n');
+              const answer = prompt('输入要收录到的章节编号：\n' + choices, '1');
+              const target = chapters[Number(answer) - 1];
+              if (!target) return;
+              target.actIds = Array.isArray(target.actIds) ? target.actIds : [];
+              if (!target.actIds.includes(n.id)) target.actIds.push(n.id);
+              save(); render();
+            }));
+          } else actions.push(btn('移出全部幕', () => { n.actIds = []; save(); render(); }));
+          actions.push(btn('上移', () => moveNode(i, -1)), btn('下移', () => moveNode(i, 1)), btn('删除', () => {
+            if (!confirm(t === 'act' ? '删除这一幕？' : '删除章节？章节内的幕会重新显示在时间线上')) return;
+            if (t === 'ch') S.nodes.forEach(x => { if (x.type === 'ch' && Array.isArray(x.actIds)) x.actIds = x.actIds.filter(id => id !== n.id); });
+            S.nodes.splice(i, 1); if (S.active === n.id) S.active = null; save(); inject(); render();
           }));
-          body.append(h('div', { class: 'no-act' }, ...acts));
+          body.append(h('div', { class: 'no-act' }, ...actions));
         }
         body.addEventListener('click', e => { if (e.target.closest('button')) return; openId = openId === n.id ? null : n.id; render(); });
       }
-      const cls = `no-n ${t}${t === 'ch' ? ' s' + (n.st || 0) + (side++ % 2 ? ' R' : ' L') : ' L'}${S.active === n.id ? ' active' : ''}${ed ? ' ed' : ''}`;
+      const cls = `no-n ${i % 2 ? 'R' : 'L'}${S.active === n.id ? ' active' : ''}${ed ? ' ed' : ''}`;
       tl.append(h('div', { class: cls }, h('div', { class: 'no-dot' }), body));
     });
-    const add = (type, title, label) => h('button', { class: 'no-add', type: 'button', onclick: () => { const n = { id: uid(), type, title, summary: '', st: 0 }; S.nodes.push(n); editing.add(n.id); save(); render(); } }, label);
-    b.append(tl, h('div', { class: 'no-adds' }, add('ch', '新章节', '＋ 章节'), add('act', '新的一幕', '＋ 幕')));
+    b.append(tl);
+  }
+  function addNode(type, title) {
+    const n = { id: uid(), type, title, summary: '', st: 0 };
+    if (type === 'ch') n.actIds = [];
+    S.nodes.push(n); editing.add(n.id); save(); render();
   }
 
   /* ---------- ideas (Timo-style notes) ---------- */
@@ -409,26 +432,17 @@ textarea.no-in{margin-top:9px}
 
   function rIdeas(b) {
     // Quick capture remains at the top; ideas below are kept in one manually ordered sequence.
-    let pending = [];
     const ta = h('textarea', { placeholder: '记下一个想法……支持 Markdown 和 #标签' });
-    const thumbs = h('div', { class: 'no-thumbs' });
-    const drawThumbs = () => { thumbs.replaceChildren(...pending.map(src => h('img', { src }))); };
-    const file = h('input', { type: 'file', accept: 'image/*', multiple: 'multiple', style: 'display:none' });
-    file.addEventListener('change', async () => {
-      for (const f of file.files) { const src = await shrink(f); if (src) pending.push(src); }
-      file.value = '';
-      drawThumbs();
-    });
     const post = () => {
       const text = ta.value.trim();
-      if (!text && !pending.length) return;
-      S.ideas.unshift({ id: uid(), text, imgs: pending, t: Date.now() });
+      if (!text) return;
+      S.ideas.unshift({ id: uid(), text, imgs: [], t: Date.now() });
       save();
       render();
     };
-    b.append(h('div', { class: 'no-cap' }, ta, thumbs,
-      h('div', { class: 'no-cap-bar' }, btn('＋ 添加图片', () => file.click()), file,
-        h('button', { class: 'no-post', type: 'button', onclick: post }, '收录灵感'))));
+    b.append(h('div', { class: 'no-cap' }, ta,
+      h('div', { class: 'no-cap-bar' }, h('span', { class: 'no-meta' }, '想法片段 · 可拖动排序'),
+        h('button', { class: 'no-post', type: 'button', onclick: post }, '收录想法'))));
 
     if (!S.ideas.length) b.append(h('div', { class: 'no-empty' }, '这里还没有灵感片段', h('br'), '记录的内容会按顺序排列，长按右侧拖动标记即可调整顺序'));
     const list = h('div', { class: 'no-grid' });
@@ -442,20 +456,10 @@ textarea.no-in{margin-top:9px}
         t.value = d.text;
         t.addEventListener('input', () => grow(t));
         const sync = () => { d.text = t.value; };
-        const file2 = h('input', { type: 'file', accept: 'image/*', multiple: 'multiple', style: 'display:none' });
-        file2.addEventListener('change', async () => {
-          sync();
-          for (const f of file2.files) { const src = await shrink(f); if (src) d.imgs.push(src); }
-          save();
-          render();
-        });
         el.append(
-          d.imgs.length ? h('div', { class: 'no-edimgs' }, d.imgs.map((src, k) => h('div', {},
-            h('img', { src }), h('span', { onclick: () => { sync(); d.imgs.splice(k, 1); save(); render(); } }, '×')))) : null,
           t,
           h('div', { class: 'no-act' },
-            btn('完成', () => { sync(); d.text = d.text.trim(); if (!d.text && !d.imgs.length) S.ideas = S.ideas.filter(x => x !== d); editing.delete(d.id); save(); render(); }),
-            btn('＋ 图片', () => file2.click()), file2,
+            btn('完成', () => { sync(); d.text = d.text.trim(); if (!d.text) S.ideas = S.ideas.filter(x => x !== d); editing.delete(d.id); save(); render(); }),
             btn('转为章节', () => { sync(); S.nodes.push({ id: uid(), title: (d.text.split('\n')[0].replace(/^[#>\-*\s]+/, '') || '新章节').slice(0, 20), summary: d.text, st: 0 }); S.ideas = S.ideas.filter(x => x !== d); editing.delete(d.id); save(); tab = 'timeline'; render(); }),
             btn('删除', () => { if (!confirm('删除这条想法？')) return; S.ideas = S.ideas.filter(x => x !== d); editing.delete(d.id); save(); render(); })));
         requestAnimationFrame(() => { grow(t); });
@@ -464,9 +468,7 @@ textarea.no-in{margin-top:9px}
         el.append(h('div', { class: 'no-idea-head' },
           h('span', { class: 'no-idea-index' }, String(index + 1).padStart(2, '0')),
           h('span', { class: 'no-idea-time' }, fmt(d.t)), grip));
-        d.imgs.forEach(src => el.append(h('img', { class: 'no-img', src })));
         if (d.text) el.append(md(d.text));
-        if (!d.text && d.imgs.length) el.append(h('div', { class: 'no-meta' }, '图片片段'));
         el.addEventListener('click', () => { if (justDragged) return; editing.add(d.id); render(); });
       }
       list.append(el);
@@ -518,23 +520,41 @@ textarea.no-in{margin-top:9px}
     const b = document.getElementById('no-body');
     if (!b) return;
     const st = b.scrollTop;
-    b.replaceChildren();
-    b.classList.toggle('chat', tab === 'chat');
-    document.querySelectorAll('#no-panel .no-tab').forEach(t => t.classList.toggle('on', t.dataset.t === tab));
-    ({ timeline: rTimeline, ideas: rIdeas, chat: rChat })[tab](b);
-    if (tab !== 'chat') b.scrollTop = st;
+    try {
+      b.replaceChildren();
+      b.classList.toggle('chat', tab === 'chat');
+      document.querySelectorAll('#no-panel .no-tab').forEach(t => t.classList.toggle('on', t.dataset.t === tab));
+      const draw = ({ timeline: rTimeline, ideas: rIdeas, chat: rChat })[tab] || rTimeline;
+      draw(b);
+      if (tab !== 'chat') b.scrollTop = st;
+    } catch (e) {
+      console.error('[novel-outline] render failed:', e);
+      b.replaceChildren(h('div', { class: 'no-empty' }, '界面加载失败，请打开浏览器控制台查看 [novel-outline] 错误。'));
+    }
   }
 
   function init() {
     if (!document.getElementById('no-style')) {
-      const s = document.createElement('style'); s.id = 'no-style'; s.textContent = prefix(CSS) + `\n@keyframes no-plugin-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}\n#no-panel .no-body > *{animation:no-plugin-enter .28s cubic-bezier(.2,.75,.25,1) both}\n#no-panel .no-grid > .no-idea,#no-panel .no-msgs > .no-m{animation:no-plugin-enter .3s cubic-bezier(.2,.75,.25,1) both}\n@media(prefers-reduced-motion:reduce){#no-panel,#no-panel *{transition-duration:.01ms !important;animation-duration:.01ms !important;scroll-behavior:auto !important}}`; document.head.append(s);
+      const s = document.createElement('style'); s.id = 'no-style'; s.textContent = prefix(CSS) + `\n@keyframes no-plugin-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}\n#no-panel .no-body > *{animation:no-plugin-enter .28s cubic-bezier(.2,.75,.25,1) both}\n#no-panel .no-grid > .no-idea,#no-panel .no-msgs > .no-m{animation:no-plugin-enter .3s cubic-bezier(.2,.75,.25,1) both}\n@media(max-width:520px){#no-panel .no-tl{grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr);column-gap:8px}#no-panel .no-n{column-gap:8px}#no-panel .no-name{font-size:15px}#no-panel .no-sum{font-size:12px}}
+@media(prefers-reduced-motion:reduce){#no-panel,#no-panel *{transition-duration:.01ms !important;animation-duration:.01ms !important;scroll-behavior:auto !important}}`; document.head.append(s);
     }
     const panel = h('div', { id: 'no-panel' },
       h('div', { class: 'no-head' }, h('div', { class: 'no-title' }, '大纲'), h('div', { class: 'no-x', role: 'button', 'aria-label': '关闭', onclick: () => panel.classList.remove('open') })),
       h('div', { class: 'no-tabs' }, ...[['timeline', '时间线'], ['ideas', '灵感'], ['chat', '讨论']].map(([k, v]) =>
         h('div', { class: 'no-tab', 'data-t': k, onclick: () => { tab = k; render(); } }, v))),
       h('div', { id: 'no-body', class: 'no-body' }));
-    const open = () => { load(); render(); panel.classList.add('open'); };
+    const open = () => {
+      try {
+        load();
+        panel.classList.add('open');
+        render();
+      } catch (e) {
+        console.error('[novel-outline] open failed:', e);
+        panel.classList.add('open');
+        const b = panel.querySelector('#no-body');
+        if (b) b.replaceChildren(h('div', { class: 'no-empty' }, '插件打开失败，请检查控制台中的 [novel-outline] 错误。'));
+      }
+    };
     document.body.append(panel);
     const addMenu = () => {
       const menu = document.getElementById('extensionsMenu');
@@ -549,9 +569,20 @@ textarea.no-in{margin-top:9px}
       let tries = 0;
       const timer = setInterval(() => { if (addMenu() || ++tries > 60) clearInterval(timer); }, 500);
     }
-    const c = ctx();
-    c.eventSource.on(c.eventTypes.CHAT_CHANGED, () => { load(); inject(); editing.clear(); render(); });
-    load(); inject();
+    try {
+      const c = ctx();
+      const changed = c && c.eventTypes && c.eventTypes.CHAT_CHANGED;
+      if (changed && c.eventSource && typeof c.eventSource.on === 'function') {
+        c.eventSource.on(changed, () => {
+          try { load(); inject(); editing.clear(); if (panel.classList.contains('open')) render(); }
+          catch (e) { console.error('[novel-outline] chat-change handler failed:', e); }
+        });
+      }
+      load(); inject();
+    } catch (e) {
+      // Do not let a context/event API mismatch prevent the menu item from working.
+      console.error('[novel-outline] initialization context warning:', e);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
