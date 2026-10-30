@@ -1,4 +1,80 @@
 (() => {
+  const CSS = `#no-panel{position:fixed;inset:0;z-index:5000;display:none;flex-direction:column;background:#fafafa;color:#000;font-family:"Noto Serif SC","Songti SC",Georgia,serif;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+#no-panel.open{display:flex}
+#no-panel *{box-sizing:border-box}
+#no-panel button,#no-panel input,#no-panel textarea{font-family:inherit;color:inherit}
+#no-panel .no-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #000}
+#no-panel .no-title{font-size:17px;font-weight:600;letter-spacing:.25em}
+#no-panel .no-tabs{display:flex;border-bottom:1px solid #ddd}
+#no-panel .no-tab{flex:1;text-align:center;padding:12px 0;font-size:14px;letter-spacing:.2em;color:#999;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+#no-panel .no-tab.on{color:#000;border-color:#000}
+#no-panel .no-body{flex:1;overflow:auto;width:100%;max-width:720px;margin:0 auto;padding:24px 18px 48px}
+#no-panel .no-body.chat{display:flex;flex-direction:column;padding-bottom:14px}
+#no-panel .no-tl{position:relative;padding-left:32px}
+#no-panel .no-tl::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:#000}
+#no-panel .no-n{position:relative;margin-bottom:24px}
+#no-panel .no-dot{position:absolute;left:-32px;top:16px;width:16px;height:16px;border-radius:50%;background:#fafafa;border:2px solid #000}
+#no-panel .no-n.s1 .no-dot{background:linear-gradient(90deg,#000 50%,#fafafa 50%)}
+#no-panel .no-n.s2 .no-dot{background:#000}
+#no-panel .no-n.active .no-dot{box-shadow:0 0 0 3px #fafafa,0 0 0 4px #000}
+#no-panel .no-card{background:#fff;border:1px solid #000;padding:14px 16px;transition:box-shadow .15s,transform .15s}
+#no-panel .no-card:hover{box-shadow:4px 4px 0 #000;transform:translate(-2px,-2px)}
+#no-panel .no-n.active .no-card{background:#000;color:#fff}
+#no-panel .no-n.active .no-card:hover{box-shadow:4px 4px 0 #999}
+#no-panel .no-lab{font-size:12px;color:#888;letter-spacing:.1em;margin-bottom:4px}
+#no-panel .no-n.active .no-lab{color:#aaa}
+#no-panel .no-name{font-size:18px;font-weight:600;line-height:1.4;margin-bottom:6px}
+#no-panel .no-sum{font-size:14px;line-height:1.9;white-space:pre-wrap;color:#333}
+#no-panel .no-n.active .no-sum{color:#ddd}
+#no-panel .no-act{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px}
+#no-panel .no-btn{background:none;border:0;border-bottom:1px solid currentColor;padding:0 0 1px;font-size:12px;cursor:pointer;opacity:.7}
+#no-panel .no-btn:hover{opacity:1}
+#no-panel .no-st{font-size:12px;border:1px solid currentColor;padding:0 8px;border-radius:99px;cursor:pointer;background:none}
+#no-panel .no-add{display:block;width:100%;padding:14px;border:1px dashed #000;background:none;font-size:14px;letter-spacing:.2em;cursor:pointer}
+#no-panel .no-add:hover{background:#000;color:#fff}
+#no-panel .no-empty{text-align:center;color:#999;font-size:14px;line-height:2;padding:40px 0}
+#no-panel input.no-in,#no-panel textarea.no-in{width:100%;border:0;border-bottom:1px solid #000;background:transparent;padding:6px 0;font-size:15px;line-height:1.8;outline:none;resize:vertical}
+#no-panel textarea.no-in{border:1px solid #000;padding:8px;margin-top:8px}
+#no-panel .no-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+#no-panel .no-idea{background:#fff;border:1px solid #000;padding:12px 14px;display:flex;flex-direction:column;min-height:170px}
+#no-panel .no-idea:hover{box-shadow:4px 4px 0 #000;transform:translate(-2px,-2px)}
+#no-panel .no-idea .no-lab{margin-bottom:6px}
+#no-panel .no-idea textarea{flex:1;border:0;background:transparent;resize:none;font-size:14px;line-height:1.9;outline:none;padding:0}
+#no-panel .no-idea .no-act{margin-top:8px}
+#no-panel .no-idea.new{border-style:dashed;align-items:center;justify-content:center;cursor:pointer;font-size:14px;letter-spacing:.2em}
+#no-panel .no-idea.new:hover{background:#000;color:#fff}
+#no-panel .no-msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:12px}
+#no-panel .no-m{max-width:88%;padding:10px 14px;font-size:14px;line-height:1.9;white-space:pre-wrap}
+#no-panel .no-m.u{align-self:flex-end;background:#000;color:#fff}
+#no-panel .no-m.a{align-self:flex-start;background:#fff;border:1px solid #000}
+#no-panel .no-m .no-act{margin-top:8px}
+#no-panel .no-bar{display:flex;gap:10px;align-items:flex-end;border-top:1px solid #000;padding-top:12px}
+#no-panel .no-bar textarea{flex:1;border:1px solid #000;background:#fff;padding:8px 10px;font-size:14px;line-height:1.6;resize:none;outline:none;max-height:120px}
+#no-panel .no-send{background:#000;color:#fff;border:0;padding:10px 18px;font-size:14px;letter-spacing:.15em;cursor:pointer}
+#no-panel .no-send:disabled{opacity:.4}
+#no-panel .no-tool{display:flex;gap:16px;margin-bottom:18px}
+#no-panel .no-adds{display:flex;gap:10px}
+#no-panel .no-adds .no-add{flex:1;padding:12px 4px;letter-spacing:.1em}
+#no-panel .no-n.vol{margin-top:34px}
+#no-panel .no-n.vol:first-child{margin-top:0}
+#no-panel .no-n.vol .no-dot{width:20px;height:20px;left:-34px;top:14px;border-radius:0;background:#000}
+#no-panel .no-n.act .no-dot{width:10px;height:10px;left:-29px;top:10px;border:0;border-radius:0;background:#000}
+#no-panel .no-n.vol .no-card{border-width:2px;padding:16px}
+#no-panel .no-n.vol .no-name{font-size:21px;letter-spacing:.12em}
+#no-panel .no-n.act .no-card{border:0;border-left:3px solid #000;background:transparent;padding:2px 0 2px 12px}
+#no-panel .no-n.act .no-name{font-size:16px}
+#no-panel .no-n.vol .no-card:hover,#no-panel .no-n.act .no-card:hover{box-shadow:none;transform:none}
+#no-panel .no-cnt{font-size:12px;color:#888;margin-top:4px}
+#no-panel{position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;width:100vw !important;height:100vh !important;height:100dvh !important;max-width:none !important;margin:0 !important;z-index:99999 !important;background:#fafafa !important;color:#000 !important;overflow:hidden !important;display:none !important}
+#no-panel.open{display:flex !important;flex-direction:column !important}
+#no-panel .no-head,#no-panel .no-tabs{flex:none}
+#no-panel .no-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#no-panel button,#no-panel input,#no-panel textarea{-webkit-appearance:none;appearance:none;text-shadow:none;margin:0;border-radius:0}
+#no-panel .no-x{position:relative !important;width:44px !important;height:44px !important;flex:none !important;cursor:pointer;background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:0 -10px 0 0 !important;opacity:1 !important}
+#no-panel .no-x::before,#no-panel .no-x::after{content:"";position:absolute;left:11px;top:21px;width:22px;height:2px;background:#000;border-radius:0}
+#no-panel .no-x::before{transform:rotate(45deg)}
+#no-panel .no-x::after{transform:rotate(-45deg)}
+`;
   const KEY = 'novel_outline';
   const ctx = () => SillyTavern.getContext();
   const STATES = ['构思中', '进行中', '已完成'];
@@ -199,18 +275,26 @@
   }
 
   function init() {
+    if (!document.getElementById('no-style')) { const st = document.createElement('style'); st.id = 'no-style'; st.textContent = CSS; document.head.append(st); }
     const panel = h('div', { id: 'no-panel' },
-      h('div', { class: 'no-head' }, h('div', { class: 'no-title' }, '大纲'), h('button', { class: 'no-x', type: 'button', onclick: () => panel.classList.remove('open') }, '×')),
+      h('div', { class: 'no-head' }, h('div', { class: 'no-title' }, '大纲'), h('div', { class: 'no-x', role: 'button', 'aria-label': '关闭', onclick: () => panel.classList.remove('open') })),
       h('div', { class: 'no-tabs' }, ...[['timeline', '时间线'], ['ideas', '灵感'], ['chat', '讨论']].map(([k, v]) =>
         h('div', { class: 'no-tab', 'data-t': k, onclick: () => { tab = k; render(); } }, v))),
       h('div', { id: 'no-body', class: 'no-body' }));
     const open = () => { load(); render(); panel.classList.add('open'); };
-    const fab = h('div', { id: 'no-fab', title: '小说大纲', onclick: open }, '纲');
-    document.body.append(fab, panel);
-    const menu = document.getElementById('extensionsMenu');
-    if (menu && !document.getElementById('no-menu-item')) {
-      menu.append(h('div', { id: 'no-menu-item', class: 'list-group-item flex-container flexGap5', onclick: open },
-        h('div', { class: 'fa-solid fa-book-open extensionsMenuExtensionButton' }), h('span', {}, '小说大纲')));
+    document.body.append(panel);
+    const addMenu = () => {
+      const menu = document.getElementById('extensionsMenu');
+      if (!menu) return false;
+      if (!document.getElementById('no-menu-item')) {
+        menu.append(h('div', { id: 'no-menu-item', class: 'list-group-item flex-container flexGap5', onclick: open },
+          h('div', { class: 'fa-solid fa-book-open extensionsMenuExtensionButton' }), '小说大纲'));
+      }
+      return true;
+    };
+    if (!addMenu()) {
+      let tries = 0;
+      const timer = setInterval(() => { if (addMenu() || ++tries > 60) clearInterval(timer); }, 500);
     }
     const c = ctx();
     c.eventSource.on(c.eventTypes.CHAT_CHANGED, () => { load(); inject(); editing.clear(); render(); });
